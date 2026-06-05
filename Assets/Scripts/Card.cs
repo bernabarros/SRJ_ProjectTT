@@ -23,29 +23,65 @@ public class Card
     /// <summary>
     /// Current owner of the Card
     /// </summary>
-    //private Player owner;
-    public Card(int north, int south, int west, int east/*Player player*/)
+    private Player owner;
+    public Card(int north, int south, int west, int east, Player player)
     {
         this.north = north;
         this.south = south;
         this.west = west;
         this.east = east;
+        owner = player;
     }
 
+    /// <summary>
+    /// Return card's North value
+    /// </summary>
+    /// <returns></returns>
     public int GetNorth()
     {
         return north;
     }
+
+    /// <summary>
+    /// Return card's South value
+    /// </summary>
+    /// <returns></returns>
     public int GetSouth()
     {
         return south;
     }
+
+    /// <summary>
+    /// Return card's West value
+    /// </summary>
+    /// <returns></returns>
     public int GetWest()
     {
         return west;
     }
+    
+    /// <summary>
+    /// Return card's East value
+    /// </summary>
+    /// <returns></returns>
     public int GetEast()
     {
         return east;
+    }
+    /// <summary>
+    /// Returns card's owner
+    /// </summary>
+    /// <returns></returns>
+    public Player GetOwner()
+    {
+        return owner;
+    }
+    /// <summary>
+    /// Set card's owner value
+    /// </summary>
+    /// <param name="newowner"></param>
+    public void SetOwner(Player newowner)
+    {
+        owner = newowner;
     }
 }
