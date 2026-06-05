@@ -1,6 +1,5 @@
-using UnityEngine;
 /// <summary>
-/// Class that controls Cards, stores values and the current player owner
+/// Class that controls Cards, stores direction values and the current player owner
 /// </summary>
 public class Card
 {
