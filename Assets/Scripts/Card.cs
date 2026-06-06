@@ -4,6 +4,10 @@
 public class Card
 {
     /// <summary>
+    /// ID for the card, single letter from A-Z
+    /// </summary>
+    private string cardID;
+    /// <summary>
     /// Value for North direction
     /// </summary>
     private int north;
@@ -23,8 +27,9 @@ public class Card
     /// Current owner of the Card
     /// </summary>
     private Player owner;
-    public Card(int north, int south, int west, int east, Player player)
+    public Card(string cardID, int north, int south, int west, int east, Player player)
     {
+        this.cardID = cardID;
         this.north = north;
         this.south = south;
         this.west = west;
