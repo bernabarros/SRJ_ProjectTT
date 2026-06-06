@@ -5,14 +5,19 @@ public class GameManager : MonoBehaviour
     public Player CurrentPlayer;
     private Board board = new Board();
 
-    public void PlayCard(Card card, int row, int col)
+    public bool PlayCard(Card card, int row, int col)
     {
+        Debug.Log(
+        $"Playing {card.GetCardID()} at {row},{col}"
+        );
         bool success = board.PlaceCard(card, row , col);
 
         if(success)
         {
             SwitchPlayer();
         }
+        
+        return success;
     }
     /// <summary>
     /// Method for switching Player turn

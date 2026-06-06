@@ -36,7 +36,14 @@ public class Card
         this.east = east;
         owner = player;
     }
-
+    /// <summary>
+    /// Return card's CardID
+    /// </summary>
+    /// <returns></returns>
+    public string GetCardID()
+    {
+        return cardID;
+    }
     /// <summary>
     /// Return card's North value
     /// </summary>

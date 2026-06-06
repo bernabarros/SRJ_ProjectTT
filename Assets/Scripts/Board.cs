@@ -20,6 +20,7 @@ public class Board
         {
             Grid[row,col] = card;
             ResolveCaptures(row,col);
+            CardUI.RefreshAll();
 
             placement = true;
         }
