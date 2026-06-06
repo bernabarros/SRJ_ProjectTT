@@ -41,7 +41,7 @@ public class CardUI : MonoBehaviour
     }
     public void SelectCard()
     {
-        if(Card.GetOwner() != gameManager.CurrentPlayer)
+        if(Card.GetOwner() != gameManager.currentPlayer.Value)
         {
             Debug.Log("Not your turn");
             return;

@@ -21,8 +21,11 @@ public class BoardCellUI : MonoBehaviour
             return;
         }
 
-        bool success = gameManager.PlayCard(selected.Card,row,col);
+        //bool success = gameManager.PlayCard(selected.Card,row,col);
 
+        gameManager.RequestPlayCardRpc(selected.Card.GetCardID(), row, col);
+
+        /*
         if(success)
         {
             selected.transform.SetParent(cardAnchor, false);
@@ -51,6 +54,7 @@ public class BoardCellUI : MonoBehaviour
 
             SelectionManager.Instance.SelectedCard = null;
         }
+        */
     /*
         Debug.Log(
             $"Place {selected.Card.GetCardID()} at {row},{col}"
