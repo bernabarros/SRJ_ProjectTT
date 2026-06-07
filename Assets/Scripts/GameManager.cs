@@ -1,15 +1,19 @@
 using UnityEngine;
 using TMPro;
 using Unity.Netcode;
+using System.Collections.Generic;
 
-public class GameManager : MonoBehaviour
+public class GameManager : NetworkBehaviour
 {
     [SerializeField] private TMP_Text turnText;
     //public NetworkVariable<Player> currentPlayer = new NetworkVariable<Player>();
     public Player CurrentPlayer {get; private set;}
+    public Player LocalPlayer {get; private set;}
     private Board board = new Board();
     private PlayerHand blueHand = new();
     private PlayerHand redHand = new();
+
+    private Dictionary<ulong, Player> clientPlayers = new();
 
     private ulong BlueClientID;
     private ulong RedClientID;
@@ -17,21 +21,31 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         /*
+        if(NetworkManager.Singleton.IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += AssignPlayer;
+        }
+        */
+        /*
         if(IsServer)
         {
             FirstTurnPlayer();
         }
         */
-        FirstTurnPlayer();
-        UpdateTurnUI();
+        /*
+        if(clientPlayers.Count == 2)
+        {
+            FirstTurnPlayer();
+        }
+        */
+        //UpdateTurnUI();
     }
-    /*
+    
     [Rpc(SendTo.Server)]
     public void RequestPlayCardRpc(string cardId, int row, int col)
     {
         Debug.Log($"Server received move request for {cardId} at {row},{col}");
     }
-    */
 
     public bool PlayCard(Card card, int row, int col)
     {
@@ -74,6 +88,7 @@ public class GameManager : MonoBehaviour
     {
         int bluePlayer = 0;
         int redPlayer = 0;
+
         while(bluePlayer == redPlayer)
         {
             bluePlayer = Random.Range(0,10);
@@ -186,5 +201,60 @@ public class GameManager : MonoBehaviour
         CurrentPlayer/*.Value*/ == Player.Blue
         ? Color.blue
         : Color.red;
+    }
+
+    private void AssignPlayer(ulong clientId)
+    {
+        if(!NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
+        Player assigned;
+
+        if(!clientPlayers.ContainsValue(Player.Blue))
+        {
+            assigned = Player.Blue;
+        }
+        else
+        {
+            assigned = Player.Red;
+        }
+
+        clientPlayers[clientId] = assigned;
+
+        Debug.Log($"Client {clientId} assigned {assigned}");
+
+        SendPlayerAssignmentClientRpc(
+            assigned,
+            new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = new[] { clientId}
+                }
+            }
+        );
+    }
+    [ClientRpc]
+    void SendPlayerAssignmentClientRpc(Player player, ClientRpcParams rpcParams = default)
+    {
+        LocalPlayer = player;
+
+        Debug.Log($"You are {player}");
+    }
+    public override void OnNetworkSpawn()
+    {
+        if(IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += AssignPlayer;
+            Debug.Log("Server subscribed to client connection callback");
+        }
+
+        UpdateTurnUI();
+    }
+    public void RequestPlayCard(Card card, int row, int col)
+    {
+        RequestPlayCardRpc(card.GetCardID(), row, col);
     }
 }

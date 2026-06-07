@@ -1,6 +1,8 @@
+using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
-public class HandManager : MonoBehaviour
+public class HandManager : NetworkBehaviour
 {
     
     [SerializeField] private Transform blueHand;
@@ -10,11 +12,16 @@ public class HandManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        if(!IsServer)
+        {
+           return; 
+        }
         CreatePlayerHands();
     }
 
     private void CreatePlayerHands()
     {
+        
         Card[] cardsBlue =
         {
             GenerateCard("B1", Player.Blue),
@@ -33,21 +40,28 @@ public class HandManager : MonoBehaviour
             GenerateCard("R5", Player.Red)
         };
 
-        foreach(Card card in cardsBlue)
+        foreach (var c in cardsBlue)
         {
-            gameManager.AddCardToHand(card);
-
-            GameObject obj = Instantiate(cardPrefab, blueHand);
-
-            obj.GetComponent<CardUI>().CardSetup(card);
+            CreateCardClientRpc(
+                c.GetCardID(),
+                c.GetNorth(),
+                c.GetSouth(),
+                c.GetWest(),
+                c.GetEast(),
+                (int)Player.Blue
+            );
         }
-        foreach(Card card in cardsRed)
+
+        foreach (var c in cardsRed)
         {
-            gameManager.AddCardToHand(card);
-
-            GameObject obj = Instantiate(cardPrefab, redHand);
-
-            obj.GetComponent<CardUI>().CardSetup(card);
+            CreateCardClientRpc(
+                c.GetCardID(),
+                c.GetNorth(),
+                c.GetSouth(),
+                c.GetWest(),
+                c.GetEast(),
+                (int)Player.Red
+            );
         }
     }
 
@@ -58,6 +72,10 @@ public class HandManager : MonoBehaviour
         int west = Random.Range(1,10);
         int east = Random.Range(1,10);
 
+        Debug.Log(
+            $"Generating {id} Owner={owner} N={north} S={south} W={west} E={east}"
+        );
+
         return new Card(
             id,
             north,
@@ -66,5 +84,17 @@ public class HandManager : MonoBehaviour
             east,
             owner
         );
+    }
+
+    [ClientRpc] private void CreateCardClientRpc(string id, int north, int south, int west, int east, int owner)
+    {
+        Card card = new Card(id, north, south, west, east, (Player)owner);
+
+        Transform parent = (owner == (int)Player.Blue) ? blueHand : redHand;
+
+        GameObject obj = Instantiate(cardPrefab, parent);
+        obj.GetComponent<CardUI>().CardSetup(card);
+
+        //gameManager.AddCardToHand(card);
     }
 }
