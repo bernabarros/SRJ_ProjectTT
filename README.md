@@ -80,7 +80,7 @@ S1 -- UpdateBoardClientRpc --> B1
 %% RULES NOTE
 %% =========================
 
-N1((Server is single source of truth))
+N1((Server has ultimate authority))
 N1 -. enforces .-> S1
 ```
 
