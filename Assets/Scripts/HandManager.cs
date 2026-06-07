@@ -10,10 +10,10 @@ public class HandManager : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        CreateTestCards();
+        CreatePlayerHands();
     }
 
-    private void CreateTestCards()
+    private void CreatePlayerHands()
     {
         Card[] cardsBlue =
         {

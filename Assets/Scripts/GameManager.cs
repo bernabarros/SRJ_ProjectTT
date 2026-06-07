@@ -1,19 +1,37 @@
 using UnityEngine;
 using TMPro;
+using Unity.Netcode;
 
 public class GameManager : MonoBehaviour
 {
     [SerializeField] private TMP_Text turnText;
-    public Player CurrentPlayer;
+    //public NetworkVariable<Player> currentPlayer = new NetworkVariable<Player>();
+    public Player CurrentPlayer {get; private set;}
     private Board board = new Board();
     private PlayerHand blueHand = new();
     private PlayerHand redHand = new();
 
+    private ulong BlueClientID;
+    private ulong RedClientID;
+
     private void Start()
     {
+        /*
+        if(IsServer)
+        {
+            FirstTurnPlayer();
+        }
+        */
         FirstTurnPlayer();
         UpdateTurnUI();
     }
+    /*
+    [Rpc(SendTo.Server)]
+    public void RequestPlayCardRpc(string cardId, int row, int col)
+    {
+        Debug.Log($"Server received move request for {cardId} at {row},{col}");
+    }
+    */
 
     public bool PlayCard(Card card, int row, int col)
     {
@@ -43,8 +61,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void SwitchPlayer()
     {
-        CurrentPlayer = 
-        CurrentPlayer == Player.Blue 
+        CurrentPlayer/*.Value*/ = CurrentPlayer/*.Value*/ == Player.Blue 
         ? Player.Red 
         : Player.Blue;
 
@@ -64,11 +81,11 @@ public class GameManager : MonoBehaviour
 
             if(bluePlayer > redPlayer)
             {
-                CurrentPlayer = Player.Blue;
+                CurrentPlayer/*.Value*/ = Player.Blue;
             }
             else
             {
-                CurrentPlayer = Player.Red;
+                CurrentPlayer/*.Value*/ = Player.Red;
             }
         }
     }
@@ -163,10 +180,10 @@ public class GameManager : MonoBehaviour
 
     private void UpdateTurnUI()
     {
-        turnText.text = $"{CurrentPlayer} Turn";
+        turnText.text = $"{CurrentPlayer/*.Value*/} Turn";
 
         turnText.color =
-        CurrentPlayer == Player.Blue
+        CurrentPlayer/*.Value*/ == Player.Blue
         ? Color.blue
         : Color.red;
     }
