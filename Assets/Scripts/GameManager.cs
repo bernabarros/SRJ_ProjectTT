@@ -1,28 +1,18 @@
 using UnityEngine;
 using TMPro;
-using Unity.Netcode;
 
-public class GameManager : NetworkBehaviour
+public class GameManager : MonoBehaviour
 {
     [SerializeField] private TMP_Text turnText;
-    public NetworkVariable<Player> currentPlayer = new NetworkVariable<Player>();
+    public Player CurrentPlayer;
     private Board board = new Board();
     private PlayerHand blueHand = new();
     private PlayerHand redHand = new();
-
-    private ulong BlueClientID;
-    private ulong RedClientID;
 
     private void Start()
     {
         FirstTurnPlayer();
         UpdateTurnUI();
-    }
-
-    [Rpc(SendTo.Server)]
-    public void RequestPlayCardRpc(string cardId, int row, int col)
-    {
-        Debug.Log($"Server received move request for {cardId}");
     }
 
     public bool PlayCard(Card card, int row, int col)
@@ -53,7 +43,8 @@ public class GameManager : NetworkBehaviour
     /// </summary>
     private void SwitchPlayer()
     {
-        currentPlayer.Value = currentPlayer.Value == Player.Blue 
+        CurrentPlayer = 
+        CurrentPlayer == Player.Blue 
         ? Player.Red 
         : Player.Blue;
 
@@ -73,11 +64,11 @@ public class GameManager : NetworkBehaviour
 
             if(bluePlayer > redPlayer)
             {
-                currentPlayer.Value = Player.Blue;
+                CurrentPlayer = Player.Blue;
             }
             else
             {
-                currentPlayer.Value = Player.Red;
+                CurrentPlayer = Player.Red;
             }
         }
     }
@@ -172,10 +163,10 @@ public class GameManager : NetworkBehaviour
 
     private void UpdateTurnUI()
     {
-        turnText.text = $"{currentPlayer.Value} Turn";
+        turnText.text = $"{CurrentPlayer} Turn";
 
         turnText.color =
-        currentPlayer.Value == Player.Blue
+        CurrentPlayer == Player.Blue
         ? Color.blue
         : Color.red;
     }

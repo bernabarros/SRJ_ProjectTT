@@ -1,5 +1,3 @@
-using Unity.Netcode;
-
 public class Board
 {
     public Card [,] Grid = new Card[3,3];
