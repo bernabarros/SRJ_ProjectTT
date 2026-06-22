@@ -13,6 +13,8 @@ public class CardUI : MonoBehaviour
     [SerializeField] private Image background;
     public Card Card {get; private set;}
 
+    private static Dictionary<string, CardUI> cardLookup = new Dictionary<string, CardUI>();
+
     private static List<CardUI> allCards = new List<CardUI>();
 
     private GameManager gameManager;
@@ -26,6 +28,8 @@ public class CardUI : MonoBehaviour
     public void CardSetup(Card card)
     {
         Card = card;
+
+        cardLookup[card.GetCardID()] = this;
 
         idText.text = card.GetCardID();
 
@@ -41,7 +45,7 @@ public class CardUI : MonoBehaviour
     }
     public void SelectCard()
     {
-        if(Card.GetOwner() != gameManager.CurrentPlayer/*.Value*/)
+        if(Card.GetOwner() != gameManager.CurrentPlayer.Value)
         {
             Debug.Log("Not your turn");
             return;
@@ -70,5 +74,24 @@ public class CardUI : MonoBehaviour
     {
         foreach (var c in allCards)
             c.RefreshVisual();
+    }
+
+    public static CardUI Find(string cardID)
+    {
+        if(cardLookup.TryGetValue(cardID, out CardUI card))
+        {
+            return card;
+        }
+
+        return null;
+    }
+    private void OnDestroy()
+    {
+        allCards.Remove(this);
+
+        if(Card != null)
+        {
+            cardLookup.Remove(Card.GetCardID());
+        }
     }
 }

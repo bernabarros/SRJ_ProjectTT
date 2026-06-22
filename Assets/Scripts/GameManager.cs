@@ -5,67 +5,163 @@ using System.Collections.Generic;
 
 public class GameManager : NetworkBehaviour
 {
+    /// <summary>
+    /// Game UI text variable
+    /// </summary>
     [SerializeField] private TMP_Text turnText;
-    //public NetworkVariable<Player> currentPlayer = new NetworkVariable<Player>();
-    public Player CurrentPlayer {get; private set;}
+
+    /// <summary>
+    /// NetworkVariable that indicates the turn of the currently connected client player
+    /// </summary>
+    public NetworkVariable<Player> CurrentPlayer = new NetworkVariable<Player>();
+
+    /// <summary>
+    /// Local Client variable that determines what player the local client is
+    /// </summary>
     public Player LocalPlayer {get; private set;}
+
+
     private Board board = new Board();
     private PlayerHand blueHand = new();
     private PlayerHand redHand = new();
 
+    [SerializeField] private Transform blueHandPosition;
+    [SerializeField] private Transform redHandPosition;
+    [SerializeField] private GameObject cardPrefab;
+
     private Dictionary<ulong, Player> clientPlayers = new();
+    private Dictionary<string, Card> allCards = new Dictionary<string, Card>();
 
-    private ulong BlueClientID;
-    private ulong RedClientID;
-
-    private void Start()
+    public override void OnNetworkSpawn()
     {
-        /*
-        if(NetworkManager.Singleton.IsServer)
+        if(IsServer)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += AssignPlayer;
         }
-        */
-        /*
-        if(IsServer)
+
+        CurrentPlayer.OnValueChanged += OnTurnChanged;
+
+        UpdateTurnUI();
+    }
+
+    private void OnTurnChanged(Player oldPlayer, Player newPlayer)
+    {
+        UpdateTurnUI();
+    }
+
+    private void AssignPlayer(ulong clientID)
+    {
+        if(!IsServer)
         {
-            FirstTurnPlayer();
+            return;
         }
-        */
-        /*
+
+        Player assigned = clientPlayers.Count == 0 ? Player.Blue : Player.Red;
+
+        clientPlayers[clientID] = assigned;
+
+        SendPlayerAssignmentClientRpc(assigned, new ClientRpcParams{Send = new ClientRpcSendParams{TargetClientIds = new[] {clientID}}});
+
         if(clientPlayers.Count == 2)
         {
-            FirstTurnPlayer();
+            StartMatch();
         }
-        */
-        //UpdateTurnUI();
+    }
+
+    private void StartMatch()
+    {
+        GenerateCards();
+
+        FirstTurnPlayer();
+
+        UpdateTurnUI();
+    }
+
+    
+    private void GenerateCards()
+    {
+        GeneratePlayerCards(Player.Blue);
+        GeneratePlayerCards(Player.Red);
     }
     
-    [Rpc(SendTo.Server)]
-    public void RequestPlayCardRpc(string cardId, int row, int col)
+    private void GeneratePlayerCards(Player owner)
     {
+        string prefix = owner == Player.Blue ? "B" : "R";
+
+        Card card = null;
+
+        for(int i = 1; i <= 5; i++)
+        {
+            card = new Card(
+                prefix + i,
+                Random.Range(1,10),
+                Random.Range(1,10),
+                Random.Range(1,10),
+                Random.Range(1,10),
+                owner
+            );
+
+            RegisterCard(card);
+
+            AddCardToHand(card);
+
+            CreateCardClientRpc(
+                card.GetCardID(),
+                card.GetNorth(),
+                card.GetSouth(),
+                card.GetWest(),
+                card.GetEast(),
+                (int)owner
+            );
+        }
+    }
+
+    public void RequestPlayCard(Card card, int row, int col)
+    {
+        RequestPlayCardRpc(card.GetCardID(), row, col);
+    }
+
+
+    [Rpc(SendTo.Server)]
+    public void RequestPlayCardRpc(string cardId, int row, int col, RpcParams rpcParams = default)
+    {
+        ulong sender = rpcParams.Receive.SenderClientId;
+
         Debug.Log($"Server received move request for {cardId} at {row},{col}");
+
+        ValidateandPlayMove(sender,cardId,row,col);
     }
 
     public bool PlayCard(Card card, int row, int col)
     {
-        Debug.Log(
-        $"Playing {card.GetCardID()} at {row},{col}"
-        );
+        Debug.Log($"Playing {card.GetCardID()} at {row},{col}");
+
         bool success = board.PlaceCard(card, row , col);
 
         if(success)
         {
-            RemoveCardFromHand(card);
 
-            if(IsBoardFull())
-            {
-                EndGame();
-            }
-            else
-            {
-                SwitchPlayer();
-            }
+            PlaceCardClientRpc(card.GetCardID(), row, col);
+
+            SyncCardOwners();
+
+            //RefreshCardsClientRpc();
+        }
+
+        else
+        {
+            return false;
+        }
+
+        RemoveCardFromHand(card);
+
+        if(IsBoardFull())
+        {
+            EndGame();
+        }
+        else
+        {
+            SwitchPlayer();
         }
 
         return success;
@@ -75,34 +171,16 @@ public class GameManager : NetworkBehaviour
     /// </summary>
     private void SwitchPlayer()
     {
-        CurrentPlayer/*.Value*/ = CurrentPlayer/*.Value*/ == Player.Blue 
+        CurrentPlayer.Value = CurrentPlayer.Value == Player.Blue 
         ? Player.Red 
         : Player.Blue;
-
-        UpdateTurnUI();
     }
     /// <summary>
     /// Method for deciding which player goes first by comparing randomly generated numbers 
     /// </summary>
     private void FirstTurnPlayer()
     {
-        int bluePlayer = 0;
-        int redPlayer = 0;
-
-        while(bluePlayer == redPlayer)
-        {
-            bluePlayer = Random.Range(0,10);
-            redPlayer = Random.Range(0,10);
-
-            if(bluePlayer > redPlayer)
-            {
-                CurrentPlayer/*.Value*/ = Player.Blue;
-            }
-            else
-            {
-                CurrentPlayer/*.Value*/ = Player.Red;
-            }
-        }
+        CurrentPlayer.Value = Random.Range(0,2) == 0 ? Player.Blue : Player.Red;
     }
     private bool IsBoardFull()
     {
@@ -117,6 +195,12 @@ public class GameManager : NetworkBehaviour
             }
         }
         return true;
+    }
+
+    [ClientRpc]
+    private void SendPlayerAssignmentClientRpc(Player player, ClientRpcParams rpcParams = default)
+    {
+        LocalPlayer = player;
     }
     
     public void AddCardToHand(Card card)
@@ -179,82 +263,171 @@ public class GameManager : NetworkBehaviour
         Debug.Log($"Blue Score: {blueScore}");
         Debug.Log($"Red Score: {redScore}");
 
+        string result;
+
         if(blueScore > redScore)
         {
-            turnText.text = "Blue Wins!";
+            result = "Blue Wins!";
         }
         else if(redScore > blueScore)
         {
-            turnText.text = "Red Wins!";
+            result = "Red Wins!";
         }
         else
         {
-            turnText.text = "Draw!";
+            result = "Draw!";
         }
+        ShowEndGameClientRpc(result);
     }
 
     private void UpdateTurnUI()
     {
-        turnText.text = $"{CurrentPlayer/*.Value*/} Turn";
-
-        turnText.color =
-        CurrentPlayer/*.Value*/ == Player.Blue
-        ? Color.blue
-        : Color.red;
+        if(!IsClient)
+        {
+            return;
+        }
+        if(CurrentPlayer.Value == LocalPlayer)
+        {
+            turnText.text = $"Your Turn ({CurrentPlayer.Value})";
+        }
+        else
+        {
+            turnText.text = "Opponent Turn";
+        }
     }
 
-    private void AssignPlayer(ulong clientId)
+    private void ValidateandPlayMove(ulong sender, string cardID, int row, int col)
     {
-        if(!NetworkManager.Singleton.IsServer)
+        
+        if(!clientPlayers.ContainsKey(sender))
         {
             return;
         }
 
-        Player assigned;
+        Player player = clientPlayers[sender];
 
-        if(!clientPlayers.ContainsValue(Player.Blue))
+        if(player != CurrentPlayer.Value)
         {
-            assigned = Player.Blue;
+            Debug.Log(
+                "Not your turn"
+            );
+            return;
+        }
+
+        if(!allCards.ContainsKey(cardID))
+        {
+            return;
+        }
+
+        Card card = allCards[cardID];
+
+        if(card.GetOwner() != player)
+        {
+            Debug.Log(
+                "You do not own this card"
+            );
+            return;
+        }
+
+        if(player == Player.Blue)
+        {
+            if(!blueHand.GetCards().Contains(card))
+            {
+                return;
+            }
         }
         else
         {
-            assigned = Player.Red;
+            if(!redHand.GetCards().Contains(card))
+            {
+                return;
+            }
         }
 
-        clientPlayers[clientId] = assigned;
+        if(row < 0 || row > 2)
+        {
+            return;
+        }
 
-        Debug.Log($"Client {clientId} assigned {assigned}");
+        if(col < 0 || col > 2)
+        {
+            return;
+        }
 
-        SendPlayerAssignmentClientRpc(
-            assigned,
-            new ClientRpcParams
-            {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds = new[] { clientId}
-                }
-            }
-        );
+        if(board.Grid[row,col] != null)
+        {
+            return;
+        }
+
+        bool success = PlayCard(card,row,col);
+    }
+
+    public void RegisterCard(Card card)
+    {
+        allCards[card.GetCardID()] = card;
+    }
+
+    [ClientRpc] 
+    private void CreateCardClientRpc(string id, int north, int south, int west, int east, int owner)
+    {
+        Card card = new Card(id, north, south, west, east, (Player)owner);
+
+        Transform parent = (owner == (int)Player.Blue) ? blueHandPosition : redHandPosition;
+
+        GameObject obj = Instantiate(cardPrefab, parent);
+        obj.GetComponent<CardUI>().CardSetup(card);
+
+        //gameManager.AddCardToHand(card);
     }
     [ClientRpc]
-    void SendPlayerAssignmentClientRpc(Player player, ClientRpcParams rpcParams = default)
+    private void PlaceCardClientRpc(string cardID, int row, int col)
     {
-        LocalPlayer = player;
+        CardUI cardUI = CardUI.Find(cardID);
 
-        Debug.Log($"You are {player}");
-    }
-    public override void OnNetworkSpawn()
-    {
-        if(IsServer)
+        if(cardUI == null)
         {
-            NetworkManager.Singleton.OnClientConnectedCallback += AssignPlayer;
-            Debug.Log("Server subscribed to client connection callback");
+            return;
         }
 
-        UpdateTurnUI();
+        BoardCellUI cell = BoardCellUI.Find(row,col);
+
+        cell.PlaceCardVisual(cardUI);
     }
-    public void RequestPlayCard(Card card, int row, int col)
+    /*
+    [ClientRpc]
+    private void RefreshCardsClientRpc()
     {
-        RequestPlayCardRpc(card.GetCardID(), row, col);
+        CardUI.RefreshAll();
+    }
+    */
+    private void SyncCardOwners()
+    {
+        foreach(var card in allCards.Values)
+        {
+            UpdateCardOwnerClientRpc(
+                card.GetCardID(),
+                (int)card.GetOwner()
+            );
+        }
+    }
+
+    [ClientRpc]
+    private void UpdateCardOwnerClientRpc(string cardID, int owner)
+    {
+        CardUI cardUI = CardUI.Find(cardID);
+
+        if(cardUI == null)
+        {
+            return;
+        }
+
+        cardUI.Card.SetOwner((Player)owner);
+
+        cardUI.RefreshVisual();
+    }
+    [ClientRpc]
+    private void ShowEndGameClientRpc(string result)
+    {
+        turnText.text = result;
     }
 }
