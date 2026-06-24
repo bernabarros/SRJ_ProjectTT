@@ -32,6 +32,8 @@ public class GameManager : NetworkBehaviour
     private Dictionary<ulong, Player> clientPlayers = new();
     private Dictionary<string, Card> allCards = new Dictionary<string, Card>();
 
+    public NetworkVariable<bool> MatchStarted = new NetworkVariable<bool>(false);
+
     public override void OnNetworkSpawn()
     {
         if(IsServer)
@@ -40,7 +42,12 @@ public class GameManager : NetworkBehaviour
         }
 
         CurrentPlayer.OnValueChanged += OnTurnChanged;
+        MatchStarted.OnValueChanged += OnMatchStartedChanged;
 
+        UpdateTurnUI();
+    }
+    private void OnMatchStartedChanged(bool oldValue, bool newValue)
+    {
         UpdateTurnUI();
     }
 
@@ -70,6 +77,8 @@ public class GameManager : NetworkBehaviour
 
     private void StartMatch()
     {
+        MatchStarted.Value = true;
+
         GenerateCards();
 
         FirstTurnPlayer();
@@ -284,6 +293,11 @@ public class GameManager : NetworkBehaviour
     {
         if(!IsClient)
         {
+            return;
+        }
+        if(!MatchStarted.Value)
+        {
+            turnText.text = "Waiting for other player...";
             return;
         }
         if(CurrentPlayer.Value == LocalPlayer)
