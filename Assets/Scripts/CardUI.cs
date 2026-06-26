@@ -85,6 +85,16 @@ public class CardUI : MonoBehaviour
 
         return null;
     }
+    public static void DestroyAllCards()
+    {
+        foreach (var card in allCards)
+        {
+            Destroy(card.gameObject);
+        }
+
+        allCards.Clear();
+        cardLookup.Clear();
+    }
     private void OnDestroy()
     {
         allCards.Remove(this);

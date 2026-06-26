@@ -18,23 +18,7 @@ public class NetworkStartup : MonoBehaviour
     private async void Start()
     {
         await RelayManager.Instance.InitializationTask;
-        //string [] args = Environment.GetCommandLineArgs();
-        //NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-        //NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
-        /*
-        foreach(string arg in args)
-        {
-            if(arg == "-server")
-            {
-                startAsServer = true;
-            }
 
-            if(arg == "-client")
-            {
-                startAsClient = true;
-            }
-        }
-        */
         if(startAsServer && !startAsClient)
         {
             string joinCode = await RelayManager.Instance.CreateRelay();
@@ -73,14 +57,5 @@ public class NetworkStartup : MonoBehaviour
 
             return;
         }
-    }
-    private void OnClientConnected(ulong clientId)
-    {
-        Debug.Log($"Client connected: {clientId}");
-    }
-
-    private void OnClientDisconnected(ulong clientId)
-    {
-        Debug.Log($"Client disconnected: {clientId}");
     }
 }

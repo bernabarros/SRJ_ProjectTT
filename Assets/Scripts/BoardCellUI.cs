@@ -67,48 +67,17 @@ public class BoardCellUI : MonoBehaviour
             Debug.Log("No card selected");
             return;
         }
-
-        //bool success = gameManager.PlayCard(selected.Card,row,col);
-
-        gameManager.RequestPlayCard(
-            selected.Card,
-            row,
-            col
-        );
-        /*
-        if(success)
+        gameManager.RequestPlayCard(selected.Card,row,col);
+    }
+    public static void ResetAllCells()
+    {
+        foreach(var cell in cells.Values)
         {
-            selected.transform.SetParent(cardAnchor, false);
-            selected.transform.SetAsLastSibling();
+            Button button = cell.GetComponent<Button>();
 
-            RectTransform rt = selected.GetComponent<RectTransform>();
+            button.interactable = true;
 
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-
-            rt.localScale = Vector3.one;
-            rt.anchoredPosition = Vector2.zero;
-
-            Button cardButton = selected.GetComponent<Button>();
-
-            cardButton.enabled = false;
-
-            Button cellButton = GetComponent<Button>();
-
-            cellButton.interactable = false;
-
-            backgroundImage.enabled = false;
-
-            SelectionManager.Instance.SelectedCard = null;
+            cell.backgroundImage.enabled = true;
         }
-        */
-    /*
-        Debug.Log(
-            $"Place {selected.Card.GetCardID()} at {row},{col}"
-        );
-    */
     }
 }

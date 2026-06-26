@@ -23,19 +23,11 @@ public class ClientJoinUI : MonoBehaviour
 
     public async void Connect()
     {
-        try
-        {
-            string code = joinCodeInput.text;
+        string code = joinCodeInput.text;
 
-            await RelayManager.Instance.JoinRelay(code);
+        await RelayManager.Instance.JoinRelay(code);
 
-            NetworkManager.Singleton.StartClient();
-        }
-        catch(System.Exception e)
-        {
-            Debug.LogError($"Failed to join relay: {e.Message}");
-        }
-
+        NetworkManager.Singleton.StartClient();
     }
 
     private void OnClientConnected(ulong clientId)

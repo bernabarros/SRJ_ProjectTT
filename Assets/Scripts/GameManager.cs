@@ -39,12 +39,45 @@ public class GameManager : NetworkBehaviour
         if(IsServer)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += AssignPlayer;
+            NetworkManager.Singleton.OnClientDisconnectCallback += HandlePlayerDisconnected;
         }
 
         CurrentPlayer.OnValueChanged += OnTurnChanged;
         MatchStarted.OnValueChanged += OnMatchStartedChanged;
 
         UpdateTurnUI();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        CurrentPlayer.OnValueChanged -= OnTurnChanged;
+        MatchStarted.OnValueChanged -= OnMatchStartedChanged;
+
+        if(IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= AssignPlayer;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= HandlePlayerDisconnected;
+        }
+    }
+
+    private void HandlePlayerDisconnected(ulong clientId)
+    {
+        if (!IsServer)
+            return;
+
+        Debug.Log($"Player disconnected: {clientId}");
+
+        clientPlayers.Remove(clientId);
+
+        ResetMatch();
+
+        MatchCancelledClientRpc();
+    }
+
+    [ClientRpc]
+    private void MatchCancelledClientRpc()
+    {
+        turnText.text = "Waiting for another player...";
     }
     private void OnMatchStartedChanged(bool oldValue, bool newValue)
     {
@@ -63,7 +96,16 @@ public class GameManager : NetworkBehaviour
             return;
         }
 
-        Player assigned = clientPlayers.Count == 0 ? Player.Blue : Player.Red;
+        Player assigned;
+
+        if (!clientPlayers.ContainsValue(Player.Blue))
+        {
+            assigned = Player.Blue;
+        }
+        else
+        {
+            assigned = Player.Red;
+        }
 
         clientPlayers[clientID] = assigned;
 
@@ -77,6 +119,8 @@ public class GameManager : NetworkBehaviour
 
     private void StartMatch()
     {
+        ResetMatch();
+
         MatchStarted.Value = true;
 
         GenerateCards();
@@ -86,7 +130,29 @@ public class GameManager : NetworkBehaviour
         UpdateTurnUI();
     }
 
-    
+    private void ResetMatch()
+    {
+        MatchStarted.Value = false;
+
+        board = new Board();
+
+        blueHand = new PlayerHand();
+        redHand = new PlayerHand();
+
+        allCards.Clear();
+
+        ResetBoardClientRpc();
+    }
+
+    [ClientRpc]
+    private void ResetBoardClientRpc()
+    {
+        CardUI.DestroyAllCards();
+
+        BoardCellUI.ResetAllCells();
+
+        SelectionManager.Instance.SelectedCard = null;
+    }
     private void GenerateCards()
     {
         GeneratePlayerCards(Player.Blue);
@@ -153,8 +219,6 @@ public class GameManager : NetworkBehaviour
             PlaceCardClientRpc(card.GetCardID(), row, col);
 
             SyncCardOwners();
-
-            //RefreshCardsClientRpc();
         }
 
         else
@@ -390,8 +454,6 @@ public class GameManager : NetworkBehaviour
 
         GameObject obj = Instantiate(cardPrefab, parent);
         obj.GetComponent<CardUI>().CardSetup(card);
-
-        //gameManager.AddCardToHand(card);
     }
     [ClientRpc]
     private void PlaceCardClientRpc(string cardID, int row, int col)
@@ -407,16 +469,9 @@ public class GameManager : NetworkBehaviour
 
         cell.PlaceCardVisual(cardUI);
     }
-    /*
-    [ClientRpc]
-    private void RefreshCardsClientRpc()
-    {
-        CardUI.RefreshAll();
-    }
-    */
     private void SyncCardOwners()
     {
-        foreach(var card in allCards.Values)
+        foreach(Card card in allCards.Values)
         {
             UpdateCardOwnerClientRpc(
                 card.GetCardID(),
