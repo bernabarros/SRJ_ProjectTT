@@ -44,82 +44,80 @@ O Servidor atribui as cartas aos jogadores através do "CreateCardClientRpc", co
 
 No caso de um jogador sair da sala, o restante jogador irá voltar ao estado inicial em que o texto de turno diz apenas "Waiting for other player..." através do "MatchCanceledClientRpc" e um reset é feito ao estado do jogo através do "ResetBoardClientRpc".
 
+![NetworkVisual](network_visual.png)
+
+Usando as ferramentas de visualização do Unity, uma partida de início ao fim gerou os seguintes dados:
+
+- O tráfico enviado ou recebido não excedeu os 400b/s
+- Não houve mais de 20 pacotes a serem enviados por segundo
+- E as mensagens RPC enviadas manteram-se abaixo das 30 enviados por segundo
+
 ## Diagrama de Arquitetura de Redes
 
 ```mermaid
-flowchart TD
-%% =========================
-%% CLIENTS
-%% =========================
-subgraph Clients
-    A[Client A] --> A1[Card UI Layer]
-    A --> A2[Selection Input]
 
-    B[Client B] --> B1[Card UI Layer]
-    B --> B2[Selection Input]
+sequenceDiagram
+
+participant ClientA
+participant Relay
+participant Server
+participant ClientB
+
+ClientA->>Relay: Connect
+ClientB->>Relay: Connect
+
+Relay->>Server: Forward connection
+
+alt On Match Start
+
+Server-->>ClientA: SendPlayerAssignmentClientRpc()
+Server-->>ClientB: SendPlayerAssignmentClientRpc()
+
+Server-->>ClientA: CreateCardClientRpc()
+Server-->>ClientB: CreateCardClientRpc()
+
 end
 
-%% =========================
-%% SERVER
-%% =========================
-subgraph Server
-    S1[GameManager<br/>Authoritative Logic]
-    S2[Board 3x3 State]
-    S3[Card Generation]
-    S4[Turn System]
-    S5[Capture Resolution]
+alt On Player Move
 
-    S1 --> S2
-    S1 --> S3
-    S1 --> S4
-    S1 --> S5
+ClientA->>Server: RequestPlayCardRpc(card,row,col)
+ClientB->>Server: RequestPlayCardRpc(card,row,col)
+
+Server-->>ClientA: PlaceCardClientRpc()
+Server-->>ClientB: PlaceCardClientRpc()
+
+Server-->>ClientA: UpdateCardOwnerClientRpc()
+Server-->>ClientB: UpdateCardOwnerClientRpc()
+
 end
 
-%% =========================
-%% NETWORK FLOW
-%% =========================
+alt On Match End
 
-A2 -- RequestPlayCardRpc(cardId, row, col) --> S1
-B2 -- RequestPlayCardRpc(cardId, row, col) --> S1
+Server-->>ClientA: ShowEndGameClientRpc()
+Server-->>ClientB: ShowEndGameClientRpc()
 
-S1 -- Validate Move --> S5
-S5 -- Update Board State --> S2
-S4 -- Switch Turn --> S1
+end
 
-%% =========================
-%% VISUAL SYNC
-%% =========================
+alt On Player Disconnect
 
-S3 -- CreateCardClientRpc(data) --> A1
-S3 -- CreateCardClientRpc(data) --> B1
+Server-->>ClientA: MatchCancelledClientRpc()
+Server-->>ClientB: MatchCancelledClientRpc()
 
-S1 -- UpdateBoardClientRpc --> A1
-S1 -- UpdateBoardClientRpc --> B1
+Server-->>ClientA: ResetBoardClientRpc()
+Server-->>ClientB: ResetBoardClientRpc()
 
-%% =========================
-%% RULES NOTE
-%% =========================
+end
 
-N1((Server has ultimate authority))
-N1 -. enforces .-> S1
 ```
-
 
 ## Resultados
 
-Utilizando argumentos de linha de comando, foi possível ter executáveis do jogo a correr como Servidor e outros como Clientes.
-
-Cada cliente é atribuido um valor de jogador (Azul ou Vermelho) com o primeiro jogador a ser atribuído o valor Azul.
-
-Apenas o servidor é que gera as cartas sendo que apenas na janela do mesmo é que aparecem.
-
-Não foi possível fazer a sincronização com os clientes para a atribuição das cartas por jogador.
-
-O loop do jogo também está em falta bem como a determinação do vencedor.
+Através dos Rpcs, foi conseguido sincronização entre os clientes do estado do jogo, podendo uma partida ser jogada de inicío ao fim com a indicação do vencedor ou de um empate. Foi também conseguido que uma partida possa ser reiniciada numa sala no caso de um jogador se desconectar.
+Ficou em falta dar mais feedback aos jogadores no caso de jogadas inválidas.
 
 ## Conclusão
 
-Embora a implementação deste projeto falhou, deu para perceber que numa arquitetura cliente/servidor é importante determinar, no sentido de assegurar que não há possibilidade de batotas por parte dos clientes, que elementos devem estar no controlo do servidor e o que terá ser feito por pedido por parte dos clientes.
+A implementação bem sucedida do projeto deu para perceber que numa arquitetura cliente/servidor é importante determinar, no sentido de assegurar que não há possibilidade de batotas por parte dos clientes, que elementos devem estar no controlo do servidor e o que terá ser feito por pedido por parte dos clientes.
 
 ## Bibliografia
 
